@@ -1,5 +1,5 @@
-const { Stack, Duration } = require('aws-cdk-lib');
-const CESDKService = require('../lib/cesdk-service');
+const { Stack, Duration } = require("aws-cdk-lib");
+const CESDKService = require("../lib/cesdk-service");
 
 class CesdkAwsLambdaStack extends Stack {
   /**
@@ -12,8 +12,8 @@ class CesdkAwsLambdaStack extends Stack {
     super(scope, id, props);
 
     // The code that defines your stack goes here
-    new CESDKService.CESDKService(this, 'CESDK Service');
+    new CESDKService.CESDKService(this, "CESDK Service");
   }
 }
 
-module.exports = { CesdkAwsLambdaStack }
+module.exports = { CesdkAwsLambdaStack };

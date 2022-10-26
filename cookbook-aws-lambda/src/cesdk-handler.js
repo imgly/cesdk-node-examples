@@ -1,5 +1,5 @@
-const CreativeEngine = require('@cesdk/node');
-const AWS = require('aws-sdk');
+const CreativeEngine = require("@cesdk/node");
+const AWS = require("aws-sdk");
 const S3 = new AWS.S3();
 
 const imagesDB = new AWS.DynamoDB.DocumentClient();
@@ -10,9 +10,8 @@ const tableName = process.env.TABLE_NAME;
 
 const { DesignBlockType, MimeType } = CreativeEngine;
 
-exports.main = async function(event) {
+exports.main = async function (event) {
   try {
-
     const engine = await CreativeEngine.init();
     // load scene from remote template file
     await engine.scene.loadFromURL(templateURL);
@@ -25,7 +24,7 @@ exports.main = async function(event) {
       const interpolationParams = JSON.parse(item.interpolationParams.S);
 
       // Interpolate text variable from request params
-      engine.variable.setString('quote', interpolationParams.quote);
+      engine.variable.setString("quote", interpolationParams.quote);
 
       const [page] = engine.block.findByType(DesignBlockType.Page);
       const renderedImage = await engine.block.export(page, MimeType.Png);
@@ -35,34 +34,35 @@ exports.main = async function(event) {
       await S3.putObject({
         Bucket: bucketName,
         Body: Buffer.from(imageBuffer),
-        ContentType: 'image/png',
-        Key: filename
+        ContentType: "image/png",
+        Key: filename,
       }).promise();
 
       // Retrieve image url
-      const signedUrl = await S3.getSignedUrlPromise('getObject', {
+      const signedUrl = await S3.getSignedUrlPromise("getObject", {
         Bucket: bucketName,
         Key: filename,
       });
 
-      await imagesDB.update({
-        TableName: tableName,
-        Key: { id },
-        AttributeUpdates: {
-          url: {
-            Action: "PUT",
-            Value: { S: signedUrl }
+      await imagesDB
+        .update({
+          TableName: tableName,
+          Key: { id },
+          AttributeUpdates: {
+            url: {
+              Action: "PUT",
+              Value: { S: signedUrl },
+            },
+            creationStatus: {
+              Action: "PUT",
+              Value: { S: "FINISHED" },
+            },
           },
-          creationStatus: {
-            Action: "PUT",
-            Value: { S: "FINISHED" }
-          }
-        },
-        ReturnValues: "UPDATED_NEW"
-      }).promise();
+          ReturnValues: "UPDATED_NEW",
+        })
+        .promise();
     }
-
-  } catch(error) {
+  } catch (error) {
     console.warn(error);
   }
-}
+};
