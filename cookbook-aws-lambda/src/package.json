@@ -1,0 +1,16 @@
+{
+  "name": "src",
+  "version": "1.0.0",
+  "description": "CE.SDK lambda source code",
+  "main": "cesdk-handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@cesdk/node": "^1.8.0",
+    "node-fetch": "^3.2.10",
+    "uuid": "^9.0.0"
+  }
+}
