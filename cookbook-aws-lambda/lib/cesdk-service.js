@@ -23,7 +23,7 @@ class CESDKService extends Construct {
         BUCKET: bucket.bucketName,
         TABLE_NAME: tableName,
         TEMPLATE_URL:
-          "https://img.ly/showcases/cesdk/cases/headless-design/example.scene",
+          "https://img.ly/showcases/cesdk/web/cases/headless-design/example.scene",
       },
       timeout: cdk.Duration.minutes(5),
       memorySize: 2048,

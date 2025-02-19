@@ -8,7 +8,7 @@ const bucketName = process.env.BUCKET;
 const templateURL = process.env.TEMPLATE_URL;
 const tableName = process.env.TABLE_NAME;
 
-const { MimeType } = CreativeEngine;
+const { DesignBlockType, MimeType } = CreativeEngine;
 
 exports.main = async function (event) {
   try {
@@ -26,7 +26,7 @@ exports.main = async function (event) {
       // Interpolate text variable from request params
       engine.variable.setString("quote", interpolationParams.quote);
 
-      const [page] = engine.block.findByType("page");
+      const [page] = engine.block.findByType(DesignBlockType.Page);
       const renderedImage = await engine.block.export(page, MimeType.Png);
       const imageBuffer = await renderedImage.arrayBuffer();
 
