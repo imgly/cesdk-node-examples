@@ -1,8 +1,15 @@
 const CreativeEngine = require("@cesdk/node");
-const AWS = require("aws-sdk");
-const S3 = new AWS.S3();
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const {
+  DynamoDBDocumentClient,
+  UpdateCommand,
+} = require("@aws-sdk/lib-dynamodb");
+const { PutObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
-const imagesDB = new AWS.DynamoDB.DocumentClient();
+const s3Client = new S3Client({});
+const dynamoDBClient = new DynamoDBClient({});
+const dynamoDBDocClient = DynamoDBDocumentClient.from(dynamoDBClient);
 
 const bucketName = process.env.BUCKET;
 const templateURL = process.env.TEMPLATE_URL;
@@ -10,57 +17,61 @@ const tableName = process.env.TABLE_NAME;
 
 const { MimeType } = CreativeEngine;
 
+const config = {
+  license: "<your-license-here>",
+};
+
 exports.main = async function (event) {
   try {
-    const engine = await CreativeEngine.init();
+    const engine = await CreativeEngine.init(config);
     // load scene from remote template file
     await engine.scene.loadFromURL(templateURL);
-
     for (const record of event.Records) {
       const item = record.dynamodb.NewImage;
-
       const filename = item.filename.S;
       const id = item.id.S;
       const interpolationParams = JSON.parse(item.interpolationParams.S);
-
-      // Interpolate text variable from request params
-      engine.variable.setString("quote", interpolationParams.quote);
+      // Interpolate the text content from request params
+      engine.block.setString(
+        engine.block.findByType("text")[0],
+        "text/text",
+        interpolationParams.headline
+      );
 
       const [page] = engine.block.findByType("page");
-      const renderedImage = await engine.block.export(page, MimeType.Png);
+      const renderedImage = await engine.block.export(page, {
+        mimeType: "image/png",
+      });
       const imageBuffer = await renderedImage.arrayBuffer();
 
-      // Store rendered image in S3 bucket
-      await S3.putObject({
+      const putObjectCommand = new PutObjectCommand({
         Bucket: bucketName,
         Body: Buffer.from(imageBuffer),
         ContentType: "image/png",
         Key: filename,
-      }).promise();
-
-      // Retrieve image url
-      const signedUrl = await S3.getSignedUrlPromise("getObject", {
-        Bucket: bucketName,
-        Key: filename,
       });
-
-      await imagesDB
-        .update({
-          TableName: tableName,
-          Key: { id },
-          AttributeUpdates: {
-            url: {
-              Action: "PUT",
-              Value: { S: signedUrl },
-            },
-            creationStatus: {
-              Action: "PUT",
-              Value: { S: "FINISHED" },
-            },
-          },
-          ReturnValues: "UPDATED_NEW",
-        })
-        .promise();
+      // Store rendered image in S3 bucket
+      await s3Client.send(putObjectCommand);
+      // Retrieve image url
+      const signedUrl = await getSignedUrl(s3Client, putObjectCommand, {
+        expiresIn: 3600,
+      });
+      // Update the item in DB with the signed URL and status
+      const updateCommand = new UpdateCommand({
+        TableName: tableName,
+        Key: { id },
+        UpdateExpression: "SET #status = :statusValue, #url = :signedUrl",
+        ExpressionAttributeNames: {
+          "#url": "url",
+          "#status": "creationStatus",
+        },
+        ExpressionAttributeValues: {
+          ":signedUrl": signedUrl,
+          ":statusValue": "FINISHED",
+        },
+        ReturnValues: "UPDATED_NEW",
+      });
+      await dynamoDBDocClient.send(updateCommand);
     }
   } catch (error) {
     console.warn(error);
