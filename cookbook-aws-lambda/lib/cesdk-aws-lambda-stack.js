@@ -1,4 +1,4 @@
-const { Stack, Duration } = require("aws-cdk-lib");
+const { Stack } = require("aws-cdk-lib");
 const CESDKService = require("../lib/cesdk-service");
 
 class CesdkAwsLambdaStack extends Stack {
