@@ -1,8 +1,8 @@
-const cdk = require("aws-cdk-lib");
 const { Construct } = require("constructs");
 const apigateway = require("aws-cdk-lib/aws-apigateway");
 const lambda = require("aws-cdk-lib/aws-lambda");
 const s3 = require("aws-cdk-lib/aws-s3");
+const cdk = require("aws-cdk-lib");
 const dynamodb = require("aws-cdk-lib/aws-dynamodb");
 const iam = require("aws-cdk-lib/aws-iam");
 const eventsource = require("aws-cdk-lib/aws-lambda-event-sources");
@@ -11,32 +11,32 @@ class CESDKService extends Construct {
   constructor(scope, id) {
     super(scope, id);
 
-    const bucket = new s3.Bucket(this, "CESDKStore");
     const tableName = "ImagesTable";
+    const bucket = new s3.Bucket(this, "CESDKStore");
+
+    // lambda function for images endpoint creating new images and returning images
+    const imagesHandler = new lambda.Function(this, "ImagesHandler", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      code: lambda.Code.fromAsset("src"),
+      handler: "images-handler.main",
+      environment: {
+        TABLE_NAME: tableName,
+      },
+    });
 
     // lambda function running CE.SDK and rendering image
     const cesdkHandler = new lambda.Function(this, "CESDKHandler", {
-      runtime: lambda.Runtime.NODEJS_14_X,
+      runtime: lambda.Runtime.NODEJS_20_X,
       code: lambda.Code.fromAsset("src"),
       handler: "cesdk-handler.main",
       environment: {
         BUCKET: bucket.bucketName,
         TABLE_NAME: tableName,
         TEMPLATE_URL:
-          "https://img.ly/showcases/cesdk/cases/headless-design/example.scene",
+          "https://cdn.img.ly/assets/demo/v3/ly.img.template/templates/cesdk_postcard_1.scene",
       },
       timeout: cdk.Duration.minutes(5),
       memorySize: 2048,
-    });
-
-    // lambda function for images endpoint creating new images and returning images
-    const imagesHandler = new lambda.Function(this, "ImagesHandler", {
-      runtime: lambda.Runtime.NODEJS_14_X,
-      code: lambda.Code.fromAsset("src"),
-      handler: "images-handler.main",
-      environment: {
-        TABLE_NAME: tableName,
-      },
     });
 
     // Create dynamo db table for storing image objects
@@ -45,7 +45,9 @@ class CESDKService extends Construct {
       billingMode: dynamodb.BillingMode.PROVISIONED,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: {
+        PointInTimeRecoveryEnabled: true,
+      },
       stream: dynamodb.StreamViewType.NEW_IMAGE,
     });
 
